@@ -37,30 +37,35 @@ class MJPEGProxy:
     def proxy(self):
         while True:
             eventlet.sleep(0) # sem.release(); sem.acquire() doesn't yield?!
-            with self.sem:
-                if len(self.clients) == 0:
-                    if self.connection:
-                        self.disconnect()
-                    eventlet.sleep(0.1)
-                    continue
+            self.sem.acquire()
+            if len(self.clients) == 0:
+                if self.connection:
+                    self.disconnect()
+                eventlet.sleep(0.1)
+                self.sem.release()
+                continue
+            self.sem.release()
 
             data = self.connection.recv(1024)
 
             for client in self.clients:
                 try:
                     client.send(data)
-                except socket.error as err:
+                except socket.error, err:
                     self.clients.remove(client)
                     self.log.info("Client %s disconnected: %s [clients: %s]", client, err, len(self.clients))
 
     def add_client(self, client, address):
-        with self.sem:
+        self.sem.acquire()
+        try:
             data = ''
             if self.connection is None:
                 data = self.connect()
             client.send(self.header + "\r\n\r\n" + data)
             self.clients.append(client)
-        self.log.info("Client %s connected [clients: %s]", address, len(self.clients))
+            self.log.info("Client %s connected [clients: %s]", address, len(self.clients))
+        finally:
+            self.sem.release()
 
     def disconnect(self):
         self.log.info("Disconnecting from source")
