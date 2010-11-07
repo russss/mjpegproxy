@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """Proxy an MJPEG stream (perhaps other things) to a number of clients
 intelligently, disconnecting when there's nobody watching.
 
