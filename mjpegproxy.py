@@ -48,6 +48,11 @@ class MJPEGProxy:
 
             data = self.connection.recv(1024)
 
+            if (len(data) == 0):
+                self.log.info("No data recieved from source, forcing reconnect.");
+                self.disconnect()
+                data = self.connect()
+
             for client in self.clients:
                 try:
                     client.send(data)
@@ -64,6 +69,9 @@ class MJPEGProxy:
             client.send(self.header + "\r\n\r\n" + data)
             self.clients.append(client)
             self.log.info("Client %s connected [clients: %s]", address, len(self.clients))
+        except:
+            self.log.info("Failed to connect client %s [clients: %s]", address, len(self.clients))
+            client.close()
         finally:
             self.sem.release()
 
@@ -75,11 +83,24 @@ class MJPEGProxy:
 
     def connect(self):
         self.log.info("Connecting to source %s", self.connect_address)
-        self.connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.connection.connect(self.connect_address)
-        data = self.connection.recv(1024)
-        header, data = data.split("\r\n\r\n")[0:2]
-        self.header = header
+        data = ''
+
+        try:
+            self.connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.connection.connect(self.connect_address)
+            data = self.connection.recv(1024)
+            header, data = data.split("\r\n\r\n")[0:2]
+            self.header = header
+            self.log.info("Connection successful, header recieved")
+
+        except:
+            self.log.info("Failed connecting to source %s", self.connect_address)
+
+            for client in self.clients:
+                self.log.info("Client %s disconnected due to source failure", client)
+                client.close()
+                self.clients.remove(client)
+
         return data
 
 if __name__ == '__main__':
