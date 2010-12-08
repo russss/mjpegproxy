@@ -41,9 +41,11 @@ class MJPEGProxy:
             if len(self.clients) == 0:
                 if self.connection:
                     self.disconnect()
-                eventlet.sleep(0.1)
+
                 self.sem.release()
+                eventlet.sleep(0.1)
                 continue
+
             self.sem.release()
 
             data = self.connection.recv(1024)
